@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Tabs</title>
+  <link rel="shortcut icon" href="./favicon.png" type="image/x-icon">
+  <style>
+    ul {
+      padding-left: 20px;
+      margin: 0;
+      list-style: none;
+    }
+    #tabs > ul {
+      padding-left: 3px;
+    }
+    img {
+      width: 16px;
+      margin-right: 4px;
+      vertical-align: -2px;
+    }
+    img[src=""],
+    img[src^="chrome://"] {
+      width: 0;
+      border: 8px solid #ccc;
+      border-radius: 6px;
+    }
+    a {
+      text-decoration: none;
+      white-space: nowrap;
+    }
+    a:link, a:visited {
+      color: #337ab7;
+    }
+    a:link:hover, a:visited:hover {
+      text-decoration: underline;
+      color: #23527c;
+    }
+    a:focus {
+      outline: none;
+    }
+    #buttons {
+      position: fixed;
+      top: 10px;
+      right: 10px;
+    }
+    #import-input {
+      display: none;
+    }
+  </style>
+</head>
+<body>
+  <div id="buttons">
+    <button id="save" style="display: none;">Save</button>
+    <button id="import">Import</button><input id="import-input" type="file">
+    <a download="tabs.json"><button id="export">Export</button></a>
+    <button id="shot">Shot</button>
+  </div>
+  <div id="tabs"></div>
+  <script>
+    document.querySelector('#save').addEventListener('click', e => {
+      localStorage.setItem(location.href, JSON.stringify(load()));
+      e.target.style.display = 'none';
+    }, false);
+    document.querySelector('#import').addEventListener('click', () => {
+      document.querySelector('#import-input').click();
+    }, false);
+    document.querySelector('#import-input').addEventListener('change', e => {
+      let file = e.target.files[0];
+      var reader = new FileReader();
+      reader.onloadend = e => {
+        if (e.target.readyState == FileReader.DONE) {
+          localStorage.setItem(location.href, e.target.result);
+          location.reload();
+        }
+      };
+      reader.readAsText(file);
+    }, false);
+    document.querySelector('#export').addEventListener('click', e => {
+      let $link = e.target.parentNode;
+      $link.setAttribute('href', URL.createObjectURL(new Blob([JSON.stringify(load())])));
+    }, false);
+    document.querySelector('#shot').addEventListener('click', () => {
+      let code = document.querySelector(`[type="text/babel"]`).innerText;
+      prompt('Copy and execute this in Browser Console', code);
+    }, false);
+
+    let tabs = JSON.parse(localStorage.getItem(location.href)) || [];
+    let escapeHtml = str => str.replace(/[&<>"'\/]/g, c => `&#${c.charCodeAt(0)};`);
+    let render = tabs => tabs.map((t, i) => `<li><img src="${t.icon}" /><a href="${t.url}">${escapeHtml(t.title)}</a><ul>${render(t.children)}</ul></li>`).join('');
+    document.querySelector('#tabs').innerHTML = `<ul>${render(tabs)}</ul></div>`;
+    document.querySelector('#tabs').addEventListener('mouseup', e => {
+      if (e.target.tagName === 'IMG' && (e.which === 2 || e.altKey)) {
+        document.querySelector('#save').style.display = '';
+        let $li = e.target.parentNode;
+        $li.parentNode.removeChild($li);
+      }
+    }, false);
+
+    let loadOneLevel = nodes => Array.prototype.map.call(nodes, n => ({
+      title: n.querySelector('a').innerText,
+      icon: n.querySelector('img').getAttribute('src'),
+      url: n.querySelector('a').getAttribute('href'),
+      children: loadOneLevel(n.querySelector('ul').childNodes),
+    }));
+    let load = () => loadOneLevel(document.querySelector('#tabs').querySelector('ul').childNodes);
+  </script>
+  <!-- type="text/babel" for editor code hightlight -->
+  <script type="text/babel">
+    var _tabs = (_load = tabs => tabs.map(x => ({ title: x.label, icon: x.image, url: x.linkedBrowser.currentURI.spec, children: _load(TreeStyleTabService.getChildTabs(x)) })))(TreeStyleTabService.rootTabs);
+    content.localStorage.setItem(content.location.href, JSON.stringify(_tabs));
+    content.location.reload();
+  </script>
+</body>
+</html>
